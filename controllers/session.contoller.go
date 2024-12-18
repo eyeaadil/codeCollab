@@ -29,7 +29,7 @@ func (sc *SessionController) CreateSession(c *gin.Context) {
 	var session models.Session
 	if err := c.ShouldBindJSON(&session); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		return							
 	}
 
 	session.ID = primitive.NewObjectID()

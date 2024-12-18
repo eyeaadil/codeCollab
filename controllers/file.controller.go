@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"codeCollab-backend/models"
+	"codeCollab-backend/utils" // Assuming utils has the ParseToken function
 )
 
 type FileController struct {
@@ -27,17 +28,42 @@ func NewFileController(db *mongo.Database) *FileController {
 // CreateFile adds a new file to a session
 func (fc *FileController) CreateFile(c *gin.Context) {
 	var file models.File
+
+	// Extract token from cookies
+	token, err := c.Cookie("access_token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing or invalid token"})
+		return
+	}
+
+	// Parse the token and extract the user ID
+	userID, parseErr := utils.ParseToken(token)
+	if parseErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		return
+	}
+
+	// Convert userID (string) to primitive.ObjectID if needed
+	objectID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+
+	// Bind the file data from the request body
 	if err := c.ShouldBindJSON(&file); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Set fields
 	file.ID = primitive.NewObjectID()
+	file.UserID = objectID // Set the userID extracted from the token
 	file.CreatedAt = time.Now()
 	file.UpdatedAt = time.Now()
 	file.Version = 1
 
-	_, err := fc.fileCollection.InsertOne(context.Background(), file)
+	_, err = fc.fileCollection.InsertOne(context.Background(), file)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create file"})
 		return

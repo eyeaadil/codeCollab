@@ -64,7 +64,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 		Username:     req.Username,
 		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
-		Role:         models.RoleUser,
+		// Role:         models.RoleUser,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
@@ -88,7 +88,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 		"user": models.UserPublicProfile{
 		ID:       newUser.ID,
 		Username: newUser.Username,
-		Role:     newUser.Role,
+		// Role:     newUser.Role,
 		
 	}})
 }
@@ -128,7 +128,7 @@ func (ac *AuthController) Login(c *gin.Context) {
 		"user": models.UserPublicProfile{
 		ID:       user.ID,
 		Username: user.Username,
-		Role:     user.Role,
+		// Role:     user.Role,
 	}})
 }
 

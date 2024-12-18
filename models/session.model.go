@@ -34,7 +34,7 @@ type Session struct {
 	HostUserID      primitive.ObjectID   `bson:"host_user_id" json:"host_user_id"`
 	
 	// Collaboration Details
-	CollaboratorIDs []primitive.ObjectID `bson:"collaborator_ids" json:"collaborator_ids"`
+	// CollaboratorIDs []primitive.ObjectID `bson:"collaborator_ids" json:"collaborator_ids"`
 	MaxParticipants int                  `bson:"max_participants" json:"max_participants"`
 	
 	// Session Configuration

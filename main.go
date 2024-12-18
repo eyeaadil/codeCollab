@@ -41,6 +41,11 @@ func main() {
 	routes.RegisterFileRoutes(router, fileController)
 	routes.RegisterCollaboratorRoutes(router, collaboratorController)
 
+
+	// Register WebSocket routes
+	routes.RegisterWebSocketRoutes(router)
+
+
 	// Start the server
 	port := os.Getenv("PORT")
 	if port == "" {

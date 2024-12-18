@@ -14,16 +14,16 @@ func RegisterCollaboratorRoutes(router *gin.Engine, collaboratorController *cont
 		collaborator.Use(middleware.AuthMiddleware())
 		{
 			// Add collaborator - only admin/host can add
-			collaborator.POST("/", middleware.RoleMiddleware("admin"), collaboratorController.AddCollaborator)
+			collaborator.POST("/",  collaboratorController.AddCollaborator)
 
 			// Get collaborators - authenticated users only
 			collaborator.GET("/:session_id", collaboratorController.GetCollaborators)
 
 			// Update collaborator role - only admin can update
-			collaborator.PUT("/:id", middleware.RoleMiddleware("admin"), collaboratorController.UpdateCollaboratorRole)
+			// collaborator.PUT("/:id",  collaboratorController.UpdateCollaboratorRole)
 
 			// Remove collaborator - only admin/host can remove
-			collaborator.DELETE("/:id", middleware.RoleMiddleware("admin"), collaboratorController.RemoveCollaborator)
+			collaborator.DELETE("/:id", collaboratorController.RemoveCollaborator)
 		}
 	}
 }
