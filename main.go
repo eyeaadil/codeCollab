@@ -23,6 +23,7 @@ func main() {
 	sessionController := controllers.NewSessionController(config.DB)
 	fileController := controllers.NewFileController(config.DB)
 	collaboratorController := controllers.NewCollaboratorController(config.DB)
+	// projectController := controllers.NewProjectController(config.DB) // Initialize ProjectController
 
 
 	// Set Gin to release mode for production
@@ -40,6 +41,9 @@ func main() {
 	routes.RegisterSessionRoutes(router, sessionController)
 	routes.RegisterFileRoutes(router, fileController)
 	routes.RegisterCollaboratorRoutes(router, collaboratorController)
+	// routes.ProjectRoutes(router, projectController) // Add project routes
+
+	
 
 
 	// Register WebSocket routes
