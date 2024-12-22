@@ -20,9 +20,11 @@ type User struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Username       string             `bson:"username" json:"username" validate:"required,min=3,max=50"`
 	Email          string             `bson:"email" json:"email" validate:"required,email"`
-	PasswordHash   string             `bson:"password_hash" json:"-"` // Omit for security
+	PasswordHash   string             `bson:"password_hash" json:"-"`
 	// Role           UserRole           `bson:"role" json:"role"`
 	ProfilePicture string             `bson:"profile_picture" json:"profile_picture,omitempty"`
+	AccessToken   string             `bson:"access_token" json`
+	RefreshToken  string             `bson:"refresh_token" json`
 
 	// User Statistics
 	TotalProjectsCreated int `bson:"total_projects_created" json:"total_projects_created"`

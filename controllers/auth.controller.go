@@ -84,14 +84,19 @@ func (ac *AuthController) Register(c *gin.Context) {
 	utils.SetAuthCookies(c, accessToken, refreshToken)
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "User registered successfully",
-		"user": models.UserPublicProfile{
-		ID:       newUser.ID,
-		Username: newUser.Username,
-		// Role:     newUser.Role,
-		
-	}})
+		"message":      "User registered successfully",
+		"accessToken":  accessToken,
+		"refreshToken": refreshToken,
+		"user": gin.H{
+			"id":                   newUser.ID.Hex(),
+			"username":             newUser.Username,
+			"total_projects_created": newUser.TotalProjectsCreated,
+			"total_collaborations": newUser.TotalCollaborations,
+			"is_verified":          newUser.IsVerified,
+		},
+	})
 }
+
 
 // Login handles user login
 func (ac *AuthController) Login(c *gin.Context) {
@@ -121,17 +126,26 @@ func (ac *AuthController) Login(c *gin.Context) {
 		return
 	}
 
+	// Save tokens to user model (optional, if required to persist)
+	// user.AccessToken = accessToken
+	// user.RefreshToken = refreshToken
+
 	utils.SetAuthCookies(c, accessToken, refreshToken)
 
+	// Ensure the response uses proper keys for tokens
 	c.JSON(http.StatusOK, gin.H{
-		"message": "User Login successfully",
-		"user": models.UserPublicProfile{
-		ID:       user.ID,
-		Username: user.Username,
-		// Role:     user.Role,
-	}})
+		"message":      "User Login successfully",
+		"accessToken":  accessToken,
+		"refreshToken": refreshToken,
+		"user": gin.H{
+			"id":                   user.ID.Hex(),
+			"username":             user.Username,
+			"total_projects_created": user.TotalProjectsCreated,
+			"total_collaborations": user.TotalCollaborations,
+			"is_verified":          user.IsVerified,
+		},
+	})
 }
-
 
 
 
