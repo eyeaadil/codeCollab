@@ -157,6 +157,8 @@ func (ac *AuthController) Logout(c *gin.Context) {
 
 	// Clear refresh token cookie
 	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
+	c.Header("Access-Control-Allow-Credentials", "true")
+    c.Header("Access-Control-Allow-Origin", "http://localhost:8080")
 
 	// Return response
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})

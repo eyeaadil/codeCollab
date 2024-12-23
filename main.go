@@ -32,12 +32,31 @@ func main() {
     // Initialize Gin router
     router := gin.Default()
 
+
+// Configure CORS
+router.Use(cors.New(cors.Config{
+    AllowOrigins:     []string{"http://localhost:8080"}, // Replace with your frontend URL
+    AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+    AllowHeaders:     []string{"Content-Type", "Authorization"},
+    AllowCredentials: true, // Allow cookies and other credentials
+}))
+
+
+// Handle preflight requests
+router.OPTIONS("/*path", func(c *gin.Context) {
+    c.Header("Access-Control-Allow-Origin", "http://localhost:8080")
+    c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+    c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+    c.Header("Access-Control-Allow-Credentials", "true")
+    c.Status(204)
+})
+
     // Middleware
     router.Use(gin.Logger())
     router.Use(gin.Recovery())
 
     // CORS middleware
-    router.Use(cors.Default())
+    // router.Use(cors.Default())
 
     // Register routes
     routes.RegisterAuthRoutes(router, authController)
