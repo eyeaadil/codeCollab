@@ -24,6 +24,7 @@ func main() {
     sessionController := controllers.NewSessionController(config.DB)
     fileController := controllers.NewFileController(config.DB)
     collaboratorController := controllers.NewCollaboratorController(config.DB)
+    folderController := controllers.NewFolderController(config.DB)
     // projectController := controllers.NewProjectController(config.DB) // Initialize ProjectController
 
     // Set Gin to release mode for production
@@ -62,6 +63,7 @@ router.OPTIONS("/*path", func(c *gin.Context) {
     routes.RegisterAuthRoutes(router, authController)
     routes.RegisterSessionRoutes(router, sessionController)
     routes.RegisterFileRoutes(router, fileController)
+    routes.RegisterFolderRoutes(router, folderController)
     routes.RegisterCollaboratorRoutes(router, collaboratorController)
     // routes.ProjectRoutes(router, projectController) // Add project routes
 

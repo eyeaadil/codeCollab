@@ -19,9 +19,9 @@ const (
 // File represents a file within a coding session
 type File struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	SessionID  primitive.ObjectID `bson:"session_id" json:"session_id"`
+	// SessionID  primitive.ObjectID `bson:"session_id" json:"session_id"`
 	UserID     primitive.ObjectID `bson:"user_id" json:"user_id"`
-	
+	FolderID   primitive.ObjectID `bson:"folder_id" json:"folder_id"` 
 	// File Details
 	Name        string    `bson:"name" json:"name" validate:"required"`
 	Content     string    `bson:"content" json:"content"`
