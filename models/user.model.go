@@ -17,20 +17,24 @@ const (
 
 // User represents a user in the collaborative coding platform
 type User struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Username       string             `bson:"username" json:"username" validate:"required,min=3,max=50"`
-	Email          string             `bson:"email" json:"email" validate:"required,email"`
-	PasswordHash   string             `bson:"password_hash" json:"-"`
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Username     string             `bson:"username" json:"username" validate:"required,min=3,max=50"`
+	Email        string             `bson:"email" json:"email" validate:"required,email"`
+	PasswordHash string             `bson:"password_hash" json:"-"`
 	// Role           UserRole           `bson:"role" json:"role"`
-	ProfilePicture string             `bson:"profile_picture" json:"profile_picture,omitempty"`
+	ProfilePicture string `bson:"profile_picture" json:"profile_picture,omitempty"`
 	// AccessToken   string             `bson:"access_token" json`
 	// RefreshToken  string             `bson:"refresh_token" json`
 
 	// User Statistics
 	TotalProjectsCreated int `bson:"total_projects_created" json:"total_projects_created"`
 	TotalCollaborations  int `bson:"total_collaborations" json:"total_collaborations"`
-// Collaborator Reference
-    CollaboratorID primitive.ObjectID `bson:"collaborator_id,omitempty" json:"collaborator_id,omitempty"`
+	// Collaborator Reference
+	CollaboratorID primitive.ObjectID `bson:"collaborator_id,omitempty" json:"collaborator_id,omitempty"`
+
+	// File and Folder References
+	FileIDs   []primitive.ObjectID `bson:"file_ids" json:"file_ids"`     // References to files created by the user
+	FolderIDs []primitive.ObjectID `bson:"folder_ids" json:"folder_ids"` // References to folders created by the user
 
 	// Account Management
 	LastLoginAt time.Time `bson:"last_login_at,omitempty" json:"last_login_at,omitempty"`

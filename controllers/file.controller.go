@@ -15,15 +15,19 @@ import (
 )
 
 type FileController struct {
-	fileCollection       *mongo.Collection
+	fileCollection        *mongo.Collection
 	fileVersionCollection *mongo.Collection
+	userCollection        *mongo.Collection
+	folderCollection      *mongo.Collection
 }
 
 // Constructor for FileController
 func NewFileController(db *mongo.Database) *FileController {
 	return &FileController{
-		fileCollection:       db.Collection("files"),
+		fileCollection:        db.Collection("files"),
 		fileVersionCollection: db.Collection("file_versions"),
+		userCollection:        db.Collection("users"),
+		folderCollection:      db.Collection("folders"),
 	}
 }
 
@@ -72,24 +76,47 @@ func (fc *FileController) CreateFile(c *gin.Context) {
 	file.Version = 1
 	file.LastEditedBy = userObjectID
 
+	// Insert file in the collection
 	_, err = fc.fileCollection.InsertOne(context.Background(), file)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create file"})
 		return
 	}
 
+	// Save the file in the user's files array
+	_, err = fc.userCollection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": userObjectID},
+		bson.M{"$push": bson.M{"files": file.ID}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user with file"})
+		return
+	}
+
 	// Save initial version
 	version := models.FileVersion{
-		ID:        primitive.NewObjectID(),
-		FileID:    file.ID,
-		Content:   file.Content,
-		Version:   file.Version,
-		EditedBy:  userObjectID,
-		EditedAt:  file.CreatedAt,
+		ID:       primitive.NewObjectID(),
+		FileID:   file.ID,
+		Content:  file.Content,
+		Version:  file.Version,
+		EditedBy: userObjectID,
+		EditedAt: file.CreatedAt,
 	}
 	_, err = fc.fileVersionCollection.InsertOne(context.Background(), version)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file version"})
+		return
+	}
+
+	// Save the file in the folder's files array
+	_, err = fc.folderCollection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": file.FolderID},
+		bson.M{"$push": bson.M{"files": file.ID}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update folder with file"})
 		return
 	}
 
@@ -170,10 +197,10 @@ func (fc *FileController) UpdateFile(c *gin.Context) {
 	// Increment version and update fields
 	newVersion := currentFile.Version + 1
 	updatesMap := bson.M{
-		"content":       updates.Content,
-		"language":      updates.Language,
-		"version":       newVersion,
-		"updated_at":    time.Now(),
+		"content":        updates.Content,
+		"language":       updates.Language,
+		"version":        newVersion,
+		"updated_at":     time.Now(),
 		"last_edited_by": editorID,
 	}
 
@@ -185,12 +212,12 @@ func (fc *FileController) UpdateFile(c *gin.Context) {
 
 	// Save version
 	version := models.FileVersion{
-		ID:        primitive.NewObjectID(),
-		FileID:    objectID,
-		Content:   updates.Content,
-		Version:   newVersion,
-		EditedBy:  editorID,
-		EditedAt:  time.Now(),
+		ID:       primitive.NewObjectID(),
+		FileID:   objectID,
+		Content:  updates.Content,
+		Version:  newVersion,
+		EditedBy: editorID,
+		EditedAt: time.Now(),
 	}
 	_, err = fc.fileVersionCollection.InsertOne(context.Background(), version)
 	if err != nil {
@@ -210,12 +237,36 @@ func (fc *FileController) DeleteFile(c *gin.Context) {
 		return
 	}
 
+	// Remove the file from user's file list
+	_, err = fc.userCollection.UpdateOne(
+		context.Background(),
+		bson.M{"files": objectID},
+		bson.M{"$pull": bson.M{"files": objectID}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove file from user"})
+		return
+	}
+
+	// Remove the file from the folder's file list
+	_, err = fc.folderCollection.UpdateOne(
+		context.Background(),
+		bson.M{"files": objectID},
+		bson.M{"$pull": bson.M{"files": objectID}},
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove file from folder"})
+		return
+	}
+
+	// Delete file
 	_, err = fc.fileCollection.DeleteOne(context.Background(), bson.M{"_id": objectID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete file"})
 		return
 	}
 
+	// Delete file versions
 	_, err = fc.fileVersionCollection.DeleteMany(context.Background(), bson.M{"file_id": objectID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete file versions"})

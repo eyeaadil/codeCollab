@@ -1,3 +1,4 @@
+// controllers/folderController.go
 package controllers
 
 import (
@@ -16,60 +17,121 @@ import (
 
 type FolderController struct {
 	folderCollection *mongo.Collection
+	userCollection   *mongo.Collection
 }
 
 // Constructor for FolderController
 func NewFolderController(db *mongo.Database) *FolderController {
 	return &FolderController{
 		folderCollection: db.Collection("folders"),
+		userCollection:   db.Collection("users"),
 	}
 }
 
-// CreateFolder adds a new folder to a session
 func (fc *FolderController) CreateFolder(c *gin.Context) {
 	var folder models.Folder
 
-	// Extract token from cookies
 	token, err := c.Cookie("access_token")
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing or invalid token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing token"})
 		return
 	}
 
-	// Parse the token and extract the user ID
-	userID, parseErr := utils.ParseToken(token)
-	if parseErr != nil {
+	userID, err := utils.ParseToken(token)
+	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		return
 	}
 
-	// Convert userID (string) to primitive.ObjectID if needed
-	objectID, err := primitive.ObjectIDFromHex(userID)
+	userObjectID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
-	// Bind the folder data from the request body
 	if err := c.ShouldBindJSON(&folder); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Set fields
-	folder.ID = primitive.NewObjectID()
-	folder.UserID = objectID // Set the userID extracted from the token
-	folder.CreatedAt = time.Now()
-	folder.UpdatedAt = time.Now()
+	folderID := primitive.NewObjectID()
+	newFolder := models.Folder{
+		ID:        folderID,
+		UserID:    userObjectID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      folder.Name,
+	}
 
-	_, err = fc.folderCollection.InsertOne(context.Background(), folder)
+	// Initialize folder_ids array if it doesn't exist
+	_, err = fc.userCollection.UpdateOne(
+		context.Background(),
+		bson.M{
+			"_id":        userObjectID,
+			"folder_ids": bson.M{"$exists": false},
+		},
+		bson.M{
+			"$set": bson.M{"folder_ids": []primitive.ObjectID{}},
+		},
+	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create folder"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize folder_ids"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Folder created successfully", "folder": folder})
+	// Insert folder and update user atomically
+	session, err := fc.folderCollection.Database().Client().StartSession()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start session"})
+		return
+	}
+	defer session.EndSession(context.Background())
+
+	err = session.StartTransaction()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+
+	err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		_, err := fc.folderCollection.InsertOne(sc, newFolder)
+		if err != nil {
+			return err
+		}
+
+		_, err = fc.userCollection.UpdateOne(
+			sc,
+			bson.M{"_id": userObjectID},
+			bson.M{"$addToSet": bson.M{"folder_ids": folderID}},
+		)
+		return err
+	})
+
+	if err != nil {
+		session.AbortTransaction(context.Background())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed"})
+		return
+	}
+
+	if err = session.CommitTransaction(context.Background()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Return updated user along with the folder
+	var updatedUser models.User
+	if err := fc.userCollection.FindOne(context.Background(), bson.M{"_id": userObjectID}).Decode(&updatedUser); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated user"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Folder created successfully",
+		"folder":  newFolder,
+		"user":    updatedUser,
+	})
 }
+
 
 // GetFolders retrieves all folders in a session
 func (fc *FolderController) GetFolders(c *gin.Context) {
@@ -111,7 +173,7 @@ func (fc *FolderController) UpdateFolder(c *gin.Context) {
 		return
 	}
 
-	updates["updated_at"] = time.Now()
+	updates["updated_at"] = time.Now().Unix()
 
 	_, err = fc.folderCollection.UpdateOne(context.Background(), bson.M{"_id": objectID}, bson.M{"$set": updates})
 	if err != nil {
@@ -122,7 +184,7 @@ func (fc *FolderController) UpdateFolder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Folder updated successfully"})
 }
 
-// DeleteFolder removes a folder by its ID
+// DeleteFolder removes a folder by its ID and also updates the User model
 func (fc *FolderController) DeleteFolder(c *gin.Context) {
 	folderID := c.Param("id")
 	objectID, err := primitive.ObjectIDFromHex(folderID)
@@ -131,6 +193,26 @@ func (fc *FolderController) DeleteFolder(c *gin.Context) {
 		return
 	}
 
+	// Find the folder to delete
+	var folder models.Folder
+	err = fc.folderCollection.FindOne(context.Background(), bson.M{"_id": objectID}).Decode(&folder)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Folder not found"})
+		return
+	}
+
+	// Remove the folder from the User model
+	_, err = fc.userCollection.UpdateOne(
+		context.Background(),
+		bson.M{"_id": folder.UserID},                    // Find the user associated with the folder
+		bson.M{"$pull": bson.M{"folder_ids": objectID}}, // Remove the folder ID from the folder_ids array
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove folder ID from user"})
+		return
+	}
+
+	// Delete the folder from the folders collection
 	_, err = fc.folderCollection.DeleteOne(context.Background(), bson.M{"_id": objectID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete folder"})

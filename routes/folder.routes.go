@@ -14,7 +14,7 @@ func RegisterFolderRoutes(router *gin.Engine, folderController *controllers.Fold
 	folder.Use(middleware.AuthMiddleware()) 
 	{
 		folder.POST("/", folderController.CreateFolder)               // Create a new folder
-		folder.GET("/:session_id", folderController.GetFolders)       // Get all folders in a session
+		folder.GET("/:user_id", folderController.GetFolders)       // Get all folders in a session
 		folder.PUT("/:id", folderController.UpdateFolder)             // Update a folder by ID
 		folder.DELETE("/:id", folderController.DeleteFolder)          // Delete a folder by ID
 	}
